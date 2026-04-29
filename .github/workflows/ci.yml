@@ -55,9 +55,14 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           set -o pipefail
-          make -C base coverage CC=gcc 2>&1 | tee /tmp/base-cov.txt
-          BASE_TOTAL=$(grep -E "^\s+total\s" /tmp/base-cov.txt | grep -oE "[0-9]+\.[0-9]+" | head -1)
-          echo "BASE_COVERAGE=${BASE_TOTAL:-0}" >> "$GITHUB_ENV"
+          if [ -f base/makefile ] && grep -q "^coverage:" base/makefile; then
+            make -C base coverage CC=gcc 2>&1 | tee /tmp/base-cov.txt
+            BASE_TOTAL=$(grep -E "^\s+total\s" /tmp/base-cov.txt | grep -oE "[0-9]+\.[0-9]+" | head -1)
+            echo "BASE_COVERAGE=${BASE_TOTAL:-0}" >> "$GITHUB_ENV"
+          else
+            echo "Coverage target not available in base branch"
+            echo "BASE_COVERAGE=0" >> "$GITHUB_ENV"
+          fi
 
       - name: Check coverage regression
         if: github.event_name == 'pull_request'
