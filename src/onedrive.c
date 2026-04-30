@@ -526,6 +526,34 @@ int onedrive_get_content_url(OneDriveClient* client, const char* item_id, char**
     return status == 302 ? 0 : -1;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Delta                                                              */
+/* ------------------------------------------------------------------ */
+
+struct s_delta_ctx {
+    void* user_ctx;
+    onedrive_delta_item_cb user_cb;
+};
+
+static void delta_classify_item(void* ctx, const char* item_json)
+{
+    struct s_delta_ctx* dc = ctx;
+
+    JsonDoc* doc = json_parse(item_json);
+    if (!doc)
+    {
+        return;
+    }
+
+    OneDriveDeltaAction action = json_doc_has_key(doc, "deleted")
+        ? ONEDRIVE_DELTA_DELETE
+        : ONEDRIVE_DELTA_UPSERT;
+
+    json_free(doc);
+
+    dc->user_cb(dc->user_ctx, action, item_json);
+}
+
 int onedrive_get_delta(
     OneDriveClient* client,
     const char* item_id,
@@ -580,7 +608,12 @@ int onedrive_get_delta(
             /* Invoke the callback for each item in the "value" array. */
             if (on_item_changed)
             {
-                json_doc_foreach_array_item(doc, "value", cb_ctx, (json_array_item_cb)on_item_changed);
+                struct s_delta_ctx dc = {
+                    .user_ctx = cb_ctx,
+                    .user_cb  = on_item_changed,
+                };
+
+                json_doc_foreach_array_item(doc, "value", &dc, delta_classify_item);
             }
 
             /* Follow pagination or finish. */

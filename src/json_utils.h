@@ -28,6 +28,10 @@ int json_doc_get_string(const JsonDoc* doc, const char* key, char** out);
  * Returns -1 if the key is missing or not a number. */
 int json_doc_get_int(const JsonDoc* doc, const char* key, int* out);
 
+/* Return 1 if key exists in the document (regardless of value type),
+ * 0 otherwise. */
+int json_doc_has_key(const JsonDoc* doc, const char* key);
+
 /* Look up the array at key in a parsed document and invoke cb for each element.
  * Returns 0 on success, or -1 if doc is NULL, key is
  * missing, the value is not an array, or cb is NULL. */

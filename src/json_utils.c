@@ -80,6 +80,16 @@ int json_doc_get_int(const JsonDoc* doc, const char* key, int* out)
     return -1;
 }
 
+int json_doc_has_key(const JsonDoc* doc, const char* key)
+{
+    if (!doc || !key)
+    {
+        return 0;
+    }
+
+    return cJSON_HasObjectItem(doc->root, key);
+}
+
 int json_doc_foreach_array_item(
     const JsonDoc* doc,
     const char* key,

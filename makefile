@@ -4,7 +4,8 @@ BUILD_DIR = $(ROOT_DIR)/build
 
 CC       ?= cc
 CFLAGS    = -std=c99 -pedantic -Wall -Wextra -Wno-unused-parameter -g -O2 -D_POSIX_C_SOURCE=200809L
-INC       = -I$(SRC_DIR) $(shell pkg-config --cflags libcurl 2>/dev/null)
+LIBAUDIOTAG_DIR = $(ROOT_DIR)/lib/libaudiotag
+INC       = -I$(SRC_DIR) -I$(LIBAUDIOTAG_DIR)/bin/include $(shell pkg-config --cflags libcurl 2>/dev/null)
 LDLIBS    = $(shell pkg-config --libs libcurl 2>/dev/null || echo "-lcurl") -lcjson
 
 SRC = $(wildcard $(SRC_DIR)/*.c)
@@ -51,7 +52,9 @@ $(BUILD_DIR)/sample/%: $(ROOT_DIR)/sample/%.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) $(INC) -o $@ $< $(STATIC_LIB) $(LDLIBS)
 
 # Source files for mock-linked tests (exclude real http_client)
-MOCK_LIB_SRC = $(filter-out $(SRC_DIR)/http_client.c, $(SRC))
+# Source files for tests (exclude onedrive_music.c which depends on libaudiotag)
+TEST_SRC     = $(filter-out $(SRC_DIR)/onedrive_music.c, $(SRC))
+MOCK_LIB_SRC = $(filter-out $(SRC_DIR)/http_client.c, $(TEST_SRC))
 TEST_INC     = $(INC) -I$(ROOT_DIR)/test
 
 # --- test_buffer: standalone, no external deps ---
@@ -61,10 +64,10 @@ $(BUILD_DIR)/test/test_buffer: $(TEST_DIR)/test_buffer.c $(SRC_DIR)/buffer.c
 	$(CC) $(CFLAGS) $(INC) -o $@ $(TEST_DIR)/test_buffer.c $(SRC_DIR)/buffer.c
 
 # --- test_http_client: links real http_client.c + curl ---
-$(BUILD_DIR)/test/test_http_client: $(TEST_DIR)/test_http_client.c $(SRC)
+$(BUILD_DIR)/test/test_http_client: $(TEST_DIR)/test_http_client.c $(TEST_SRC)
 	@echo "[TEST] test_http_client"
 	@mkdir -p $(BUILD_DIR)/test
-	$(CC) $(CFLAGS) $(INC) -o $@ $(TEST_DIR)/test_http_client.c $(SRC) $(LDLIBS)
+	$(CC) $(CFLAGS) $(INC) -o $@ $(TEST_DIR)/test_http_client.c $(TEST_SRC) $(LDLIBS)
 
 # --- test_json_utils: links mock_http_client + json_utils ---
 $(BUILD_DIR)/test/test_json_utils: $(TEST_DIR)/test_json_utils.c $(TEST_DIR)/mock_http_client.c $(MOCK_LIB_SRC)
@@ -78,10 +81,18 @@ $(BUILD_DIR)/test/test_onedrive: $(TEST_DIR)/test_onedrive.c $(TEST_DIR)/mock_ht
 	@mkdir -p $(BUILD_DIR)/test
 	$(CC) $(CFLAGS) $(TEST_INC) -o $@ $(TEST_DIR)/test_onedrive.c $(TEST_DIR)/mock_http_client.c $(MOCK_LIB_SRC) -lcjson
 
+# --- test_onedrive_music: links mock_http_client + onedrive_music + mock audio ---
+MUSIC_TEST_SRC = $(filter-out $(SRC_DIR)/http_client.c, $(SRC))
+$(BUILD_DIR)/test/test_onedrive_music: $(TEST_DIR)/test_onedrive_music.c $(TEST_DIR)/mock_http_client.c $(MUSIC_TEST_SRC)
+	@echo "[TEST] test_onedrive_music"
+	@mkdir -p $(BUILD_DIR)/test
+	$(CC) $(CFLAGS) $(TEST_INC) -o $@ $(TEST_DIR)/test_onedrive_music.c $(TEST_DIR)/mock_http_client.c $(MUSIC_TEST_SRC) -lcjson
+
 TEST_BINS = $(BUILD_DIR)/test/test_buffer \
             $(BUILD_DIR)/test/test_http_client \
             $(BUILD_DIR)/test/test_json_utils \
-            $(BUILD_DIR)/test/test_onedrive
+            $(BUILD_DIR)/test/test_onedrive \
+            $(BUILD_DIR)/test/test_onedrive_music
 
 test: $(TEST_BINS)
 	@failed=0; \
@@ -99,9 +110,11 @@ COV_CFLAGS = $(subst -O2,-O0,$(CFLAGS)) --coverage
 
 # Compile each source file to a coverage .o once so .gcno files are shared
 COV_OBJ_DIR = $(COV_DIR)/obj
-COV_SRC_OBJ = $(patsubst $(SRC_DIR)/%.c, $(COV_OBJ_DIR)/%.o, $(SRC))
+COV_SRC_OBJ = $(patsubst $(SRC_DIR)/%.c, $(COV_OBJ_DIR)/%.o, $(TEST_SRC))
+COV_ALL_SRC_OBJ = $(patsubst $(SRC_DIR)/%.c, $(COV_OBJ_DIR)/%.o, $(SRC))
 COV_MOCK_OBJ = $(COV_OBJ_DIR)/mock_http_client.o
 COV_MOCK_LIB_OBJ = $(filter-out $(COV_OBJ_DIR)/http_client.o, $(COV_SRC_OBJ))
+COV_MUSIC_LIB_OBJ = $(filter-out $(COV_OBJ_DIR)/http_client.o, $(COV_ALL_SRC_OBJ))
 
 $(COV_OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(COV_OBJ_DIR)
@@ -127,10 +140,15 @@ $(COV_OBJ_DIR)/test_onedrive.o: $(TEST_DIR)/test_onedrive.c
 	@mkdir -p $(COV_OBJ_DIR)
 	$(CC) -c $(COV_CFLAGS) $(TEST_INC) -o $@ $<
 
+$(COV_OBJ_DIR)/test_onedrive_music.o: $(TEST_DIR)/test_onedrive_music.c
+	@mkdir -p $(COV_OBJ_DIR)
+	$(CC) -c $(COV_CFLAGS) $(TEST_INC) -o $@ $<
+
 COV_BINS = $(COV_DIR)/test_buffer \
            $(COV_DIR)/test_http_client \
            $(COV_DIR)/test_json_utils \
-           $(COV_DIR)/test_onedrive
+           $(COV_DIR)/test_onedrive \
+           $(COV_DIR)/test_onedrive_music
 
 $(COV_DIR)/test_buffer: $(COV_OBJ_DIR)/test_buffer.o $(COV_OBJ_DIR)/buffer.o
 	@mkdir -p $(COV_DIR)
@@ -145,6 +163,10 @@ $(COV_DIR)/test_json_utils: $(COV_OBJ_DIR)/test_json_utils.o $(COV_MOCK_OBJ) $(C
 	$(CC) $(COV_CFLAGS) -o $@ $^ -lcjson
 
 $(COV_DIR)/test_onedrive: $(COV_OBJ_DIR)/test_onedrive.o $(COV_MOCK_OBJ) $(COV_MOCK_LIB_OBJ)
+	@mkdir -p $(COV_DIR)
+	$(CC) $(COV_CFLAGS) -o $@ $^ -lcjson
+
+$(COV_DIR)/test_onedrive_music: $(COV_OBJ_DIR)/test_onedrive_music.o $(COV_MOCK_OBJ) $(COV_MUSIC_LIB_OBJ)
 	@mkdir -p $(COV_DIR)
 	$(CC) $(COV_CFLAGS) -o $@ $^ -lcjson
 
@@ -189,11 +211,11 @@ clean:
 # Package
 LIB_DIR = $(ROOT_DIR)/bin
 
-PUBLIC_HEADERS = onedrive.h
+PUBLIC_HEADERS = onedrive.h onedrive_music.h
 
-lib: $(STATIC_LIB) $(SHARED_LIB)
+lib: libaudiotag $(STATIC_LIB) $(SHARED_LIB)
 	@mkdir -p $(LIB_DIR)/include
-	@cp $(STATIC_LIB) $(LIB_DIR)/
+	@printf "create $(LIB_DIR)/libonedrive.a\naddlib $(STATIC_LIB)\naddlib $(LIBAUDIOTAG_DIR)/bin/libaudiotag.a\nsave\nend\n" | $(AR) -M
 	@cp $(SHARED_LIB) $(LIB_DIR)/
 	@$(foreach h,$(PUBLIC_HEADERS),cp $(SRC_DIR)/$(h) $(LIB_DIR)/include/;)
 	@echo "Packaged into $(LIB_DIR)/"
@@ -202,5 +224,8 @@ lib: $(STATIC_LIB) $(SHARED_LIB)
 	@echo "  include/"
 	@ls $(LIB_DIR)/include/ | sed 's/^/    /'
 
-.PHONY: all clean test coverage lib
+libaudiotag:
+	$(MAKE) -C $(LIBAUDIOTAG_DIR) lib
+
+.PHONY: all clean test coverage lib libaudiotag
 .SILENT:
