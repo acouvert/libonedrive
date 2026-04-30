@@ -3,6 +3,12 @@
 
 typedef struct OneDriveClient OneDriveClient;
 
+/* Indicates whether a delta item was added/updated or deleted. */
+typedef enum {
+    ONEDRIVE_DELTA_UPSERT,
+    ONEDRIVE_DELTA_DELETE
+} OneDriveDeltaAction;
+
 /* Token storage passed to keyvault callbacks. The library owns the heap
  * strings internally; callers that receive a const pointer in the changed
  * callback must copy any values they wish to persist. */
@@ -21,8 +27,9 @@ typedef int (*onedrive_keyvault_load_cb)(void* ctx, OneDriveKeyVault* kv);
 typedef int (*onedrive_keyvault_save_cb)(void* ctx, const OneDriveKeyVault* kv);
 
 /* Called for each changed item during delta sync.
+ * action indicates whether the item was created/updated or deleted.
  * item_json is the raw JSON for that item (valid for the duration of the call). */
-typedef void (*onedrive_delta_item_cb)(void* ctx, const char* item_json);
+typedef void (*onedrive_delta_item_cb)(void* ctx, OneDriveDeltaAction action, const char* item_json);
 
 /* Create the OneDrive client. */
 OneDriveClient* onedrive_client_create(

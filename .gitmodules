@@ -1,0 +1,3 @@
+[submodule "lib/libaudiotag"]
+	path = lib/libaudiotag
+	url = https://github.com/acouvert/libaudiotag.git

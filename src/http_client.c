@@ -22,18 +22,31 @@ static size_t write_cb(void* ptr, size_t size, size_t nmemb, void* userdata)
     return total;
 }
 
+static int g_curl_ref_count = 0;
+
 HttpClient* http_client_create(void)
 {
+    if (g_curl_ref_count == 0)
+    {
+        if (curl_global_init(CURL_GLOBAL_DEFAULT) != 0)
+        {
+            return NULL;
+        }
+    }
+
+    g_curl_ref_count++;
+
     HttpClient* client = calloc(1, sizeof(HttpClient));
     if (!client)
     {
+        http_client_destroy(client);
         return NULL;
     }
 
     client->curl = curl_easy_init();
     if (!client->curl)
     {
-        free(client);
+        http_client_destroy(client);
         return NULL;
     }
 
@@ -53,6 +66,12 @@ void http_client_destroy(HttpClient* client)
     }
 
     free(client);
+
+    g_curl_ref_count--;
+    if (g_curl_ref_count == 0)
+    {
+        curl_global_cleanup();
+    }
 }
 
 int http_form_add_param(HttpClient* client, const char* key, const char* value, Buffer* out)
@@ -235,4 +254,35 @@ int http_url_get_param(HttpClient* client, const char* url, const char* param, c
 
     curl_url_cleanup(curlu);
     return *out_value ? 0 : -1;
+}
+
+long http_get_range(
+    HttpClient* client,
+    const char* url,
+    size_t from,
+    size_t to,
+    Buffer* out_response)
+{
+    CURL* curl = client->curl;
+    curl_easy_reset(curl);
+
+    char range[64];
+    snprintf(range, sizeof(range), "%zu-%zu", from, to);
+
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_RANGE, range);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, out_response);
+
+    CURLcode res = curl_easy_perform(curl);
+
+    if (res != CURLE_OK)
+    {
+        return -1;
+    }
+
+    long status = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    return status;
 }

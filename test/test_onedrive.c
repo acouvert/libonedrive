@@ -563,9 +563,9 @@ static int test_get_delta_null_token(void)
 
 static int delta_item_count;
 
-static void delta_item_counter(void* ctx, const char* item_json)
+static void delta_item_counter(void* ctx, OneDriveDeltaAction action, const char* item_json)
 {
-    (void)ctx; (void)item_json;
+    (void)ctx; (void)action; (void)item_json;
     delta_item_count++;
 }
 

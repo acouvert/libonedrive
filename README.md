@@ -104,6 +104,44 @@ int onedrive_get_delta(
 
 - `onedrive_get_delta` — Tracks changes under a folder using the Microsoft Graph delta API. Pass `NULL` for `delta_token` on an initial sync; on subsequent calls pass the token returned by the previous invocation. `select` optionally limits the fields returned (comma-separated, may be `NULL`). For each changed item, `on_item_changed` is called with the item's JSON. On success `*out_delta_token` is set to a heap-allocated string and 0 is returned. Caller must free `*out_delta_token` when done. Returns -1 on failure. Handles pagination automatically.
 
+### Music API (onedrive_music.h)
+
+```c
+typedef void (*onedrive_music_item_cb)(
+    void* ctx,
+    const char* item_id,
+    const char* item_version,
+    const char* item_url);
+
+int onedrive_get_music_delta(
+    OneDriveClient* client,
+    const char* item_id,
+    const char* delta_token,
+    void* cb_ctx,
+    onedrive_music_item_cb on_item_changed,
+    char** out_delta_token);
+```
+
+- `onedrive_get_music_delta` — Like `onedrive_get_delta`, but filters items by file extension (`.mp3`, `.flac`). Only music items trigger the `on_item_changed` callback, which receives the item ID, version tag (`cTag`), and a temporary download URL. Non-music items, folders, and items without a `cTag` are silently skipped.
+
+```c
+typedef void (*onedrive_music_item_metadata_cb)(
+    void* ctx,
+    const char* item_id,
+    const char* metadata_name,
+    const char* metadata_value);
+
+int onedrive_music_get_metadata(
+    OneDriveClient* client,
+    const char* item_id,
+    const char* item_url,
+    const char* metadata_fields,
+    void* cb_ctx,
+    onedrive_music_item_metadata_cb on_metadata);
+```
+
+- `onedrive_music_get_metadata` — Streams the music file at `item_url` and extracts audio metadata (ID3/Vorbis tags) without downloading the entire file. `metadata_fields` is a comma-separated list of tag names to extract, or `NULL` to receive all tags. For each matching tag, `on_metadata` is invoked with the item ID, tag name, and tag value. Returns 0 on success, -1 on failure.
+
 ## Authentication Flow
 
 When no tokens are available, the library initiates a device authorization flow:

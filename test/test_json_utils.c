@@ -527,6 +527,62 @@ static int test_json_doc_foreach_null_doc(void)
 }
 
 /* ------------------------------------------------------------------ */
+/*  Tests: json_doc_has_key                                            */
+/* ------------------------------------------------------------------ */
+
+static int test_json_doc_has_key_exists(void)
+{
+    JsonDoc* doc = json_parse("{\"name\": \"alice\"}");
+    ASSERT(doc != NULL);
+    ASSERT(json_doc_has_key(doc, "name") == 1);
+    json_free(doc);
+    return 0;
+}
+
+static int test_json_doc_has_key_missing(void)
+{
+    JsonDoc* doc = json_parse("{\"name\": \"alice\"}");
+    ASSERT(doc != NULL);
+    ASSERT(json_doc_has_key(doc, "age") == 0);
+    json_free(doc);
+    return 0;
+}
+
+static int test_json_doc_has_key_null_doc(void)
+{
+    ASSERT(json_doc_has_key(NULL, "name") == 0);
+    return 0;
+}
+
+static int test_json_doc_has_key_null_key(void)
+{
+    JsonDoc* doc = json_parse("{\"name\": \"alice\"}");
+    ASSERT(doc != NULL);
+    ASSERT(json_doc_has_key(doc, NULL) == 0);
+    json_free(doc);
+    return 0;
+}
+
+static int test_json_doc_has_key_object_value(void)
+{
+    JsonDoc* doc = json_parse("{\"folder\": {\"childCount\": 3}}");
+    ASSERT(doc != NULL);
+    ASSERT(json_doc_has_key(doc, "folder") == 1);
+    ASSERT(json_doc_has_key(doc, "childCount") == 0);
+    json_free(doc);
+    return 0;
+}
+
+static int test_json_doc_has_key_null_value(void)
+{
+    JsonDoc* doc = json_parse("{\"deleted\": null}");
+    ASSERT(doc != NULL);
+    ASSERT(json_doc_has_key(doc, "deleted") == 1);
+    json_free(doc);
+    return 0;
+}
+
+/* ------------------------------------------------------------------ */
 /*  main                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -593,6 +649,14 @@ int main(void)
     /* json_doc_foreach_array_item */
     RUN_TEST(test_json_doc_foreach_basic);
     RUN_TEST(test_json_doc_foreach_null_doc);
+
+    /* json_doc_has_key */
+    RUN_TEST(test_json_doc_has_key_exists);
+    RUN_TEST(test_json_doc_has_key_missing);
+    RUN_TEST(test_json_doc_has_key_null_doc);
+    RUN_TEST(test_json_doc_has_key_null_key);
+    RUN_TEST(test_json_doc_has_key_object_value);
+    RUN_TEST(test_json_doc_has_key_null_value);
 
     fprintf(stderr, "  %-50s%s\n", "---", "--");
     fprintf(stderr, "  %d passed, %d failed\n\n", passed, failed);

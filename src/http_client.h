@@ -43,4 +43,15 @@ int http_client_get_redirect_url(HttpClient* client, char** out_url);
  * Returns 0 on success, -1 if the parameter is not found. */
 int http_url_get_param(HttpClient* client, const char* url, const char* param, char** out_value);
 
+/* Perform an HTTP GET requesting bytes [from, to] (inclusive) of the resource.
+ * Follows redirects automatically.  The response body is appended into
+ * out_response.
+ * Returns the HTTP status code, or -1 on transport error. */
+long http_get_range(
+    HttpClient* client,
+    const char* url,
+    size_t from,
+    size_t to,
+    Buffer* out_response);
+
 #endif /* _HTTP_CLIENT_H_ */

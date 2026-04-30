@@ -246,3 +246,15 @@ int http_url_get_param(HttpClient* client, const char* url, const char* param, c
 
     return *out_value ? 0 : -1;
 }
+
+long http_get_range(
+    HttpClient* client,
+    const char* url,
+    size_t from,
+    size_t to,
+    Buffer* out_response)
+{
+    (void)client; (void)url; (void)from; (void)to;
+    g_get_count++;
+    return consume_response(out_response);
+}
