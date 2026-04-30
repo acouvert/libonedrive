@@ -248,7 +248,7 @@ int onedrive_get_music_delta(
     return onedrive_get_delta(
         client,
         item_id,
-        "id,name,cTag,@microsoft.graph.downloadUrl",
+        "id,name,deleted,cTag,@microsoft.graph.downloadUrl",
         delta_token,
         &user_ctx,
         music_delta_on_item,
