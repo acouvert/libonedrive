@@ -23,7 +23,7 @@ TEST_DIR = $(ROOT_DIR)/test
 
 COV_DIR = $(BUILD_DIR)/coverage
 
-all: $(STATIC_LIB) $(SHARED_LIB) $(SAMPLE_BIN)
+all: libaudiotag $(STATIC_LIB) $(SHARED_LIB) $(SAMPLE_BIN)
 
 # Static library
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
