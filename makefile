@@ -170,7 +170,7 @@ $(COV_DIR)/test_onedrive_music: $(COV_OBJ_DIR)/test_onedrive_music.o $(COV_MOCK_
 	@mkdir -p $(COV_DIR)
 	$(CC) $(COV_CFLAGS) -o $@ $^ -lcjson
 
-coverage: $(COV_BINS)
+coverage: libaudiotag $(COV_BINS)
 	@failed=0; \
 	for bin in $(COV_BINS); do \
 		name=$$(basename $$bin); \
